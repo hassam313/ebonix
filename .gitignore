@@ -2,7 +2,6 @@
 king-config.php
 .env
 .env.*
-ebonix_gateway/config.py
 ebonix_gateway/.env
 ebonix_gateway/gateway.log
 CLAUDE.md
