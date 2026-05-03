@@ -1334,11 +1334,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fd.append('npvalue',       npvalue);
         fd.append('imageid',       ''); // always empty — image travels as ref_image_b64
 
-        // ── Add-on toggles (HD Export / Priority) ──────────────────────────
-        var addonHd  = document.getElementById('ebx-addon-hd');
-        var addonPri = document.getElementById('ebx-addon-priority');
-        if (addonHd  && addonHd.checked)  fd.append('addon_hd',       '1');
-        if (addonPri && addonPri.checked) fd.append('addon_priority',  '1');
+        // ── Add-on toggles ──────────────────────────────────────────────────
+        var addonUpscale = document.getElementById('ebx-addon-upscale');
+        if (addonUpscale && addonUpscale.checked) fd.append('addon_upscale', '1');
 
         if (b64DataUri) {
             // "data:image/jpeg;base64,/9j/..." — aigenerate.php strips the prefix
@@ -1536,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var pxhr = new XMLHttpRequest();
             pxhr.open('POST', ajaxUrl, true);
             pxhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            pxhr.timeout = 20000;
+            pxhr.timeout = 90000;
 
             pxhr.onload = function () {
                 if (cancelled || completed || pxhr.status < 200 || pxhr.status >= 300) return;

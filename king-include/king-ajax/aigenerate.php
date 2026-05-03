@@ -773,9 +773,7 @@ if ($is_logged_in) {
     // Add-ons
     $addon_costs    = ebonix_get_addon_costs();
     $addon_total    = 0;
-    if (!empty($_POST['addon_hd']))       $addon_total += $addon_costs['hd_export'];
     if (!empty($_POST['addon_upscale']))  $addon_total += $addon_costs['upscale'];
-    if (!empty($_POST['addon_priority'])) $addon_total += $addon_costs['priority'];
     $img_total_cost = $img_base_cost + $addon_total;
 
     // Enforcement checks — non-admin only (admin can always generate)
@@ -1663,12 +1661,12 @@ if (!$gemini_processed && !empty($image_urls)) {
         error_log("Saving image from URL: " . $image_url);
         try {
             if ($is_fal_url) {
-                // Store full CDN URL + generate a 400px local thumbnail for fast gallery display
+                // Store CDN URL directly — no download needed. Downloading a 5-15MB Fal image
+                // just to resize to 400px was causing 2+ minute delays on VPS and XHR timeouts.
                 $cdn_rec = king_store_cdn_url($image_url);
                 if (!empty($cdn_rec)) {
                     $uploaded_images[] = $cdn_rec;
-                    $thumb_id = king_urlupload($image_url, false, 400);
-                    $thumbs[] = !empty($thumb_id) ? $thumb_id : $cdn_rec;
+                    $thumbs[] = $cdn_rec;
                 }
             } else {
                 $thumb = king_urlupload($image_url, true, 400);

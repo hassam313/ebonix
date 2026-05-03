@@ -222,6 +222,7 @@ try {
           `id` int(11) NOT NULL AUTO_INCREMENT,
           `user_id` int(11) NOT NULL,
           `image_url` text NOT NULL,
+          `thumbnail_url` text DEFAULT NULL,
           `vibe` varchar(64) NOT NULL DEFAULT \'\',
           `format` varchar(16) NOT NULL DEFAULT \'4:5\',
           `details` text,
@@ -230,6 +231,8 @@ try {
           KEY `user_id` (`user_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
     );
+    $_vc = (int)qa_db_read_one_value(qa_db_query_sub('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=$ AND COLUMN_NAME=$', QA_MYSQL_TABLE_PREFIX.'king_twins', 'thumbnail_url'), true);
+    if (!$_vc) qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL');
     $gallery_twins_video = qa_db_read_all_assoc(
         qa_db_query_sub(
             'SELECT id, image_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',

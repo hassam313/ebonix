@@ -135,13 +135,12 @@ foreach ($result_images as $img) {
     $is_fal_url = (strpos($image_url, 'fal.media') !== false || strpos($image_url, 'fal.run') !== false);
 
     if ($is_fal_url) {
+        // Store CDN URL directly — no download needed. Downloading a 5-15MB Fal image
+        // just to resize to 400px was causing 2+ minute delays on VPS and XHR timeouts.
         $cdn_rec = king_store_cdn_url($image_url);
         if (!empty($cdn_rec)) {
             $uploaded_images[] = $cdn_rec;
-            // Download and save a 400px-wide WebP thumbnail for fast gallery display.
-            // king_urlupload handles download + GD resize + local save + DB insert.
-            $thumb_id = king_urlupload($image_url, false, 400);
-            $thumbs[] = !empty($thumb_id) ? $thumb_id : $cdn_rec;
+            $thumbs[] = $cdn_rec;
         }
     } else {
         $thumb = king_urlupload($image_url, true, 400);
