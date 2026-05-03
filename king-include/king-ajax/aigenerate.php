@@ -237,60 +237,13 @@ if (!function_exists('king_resize_binary')) {
 // FAL AI HELPERS
 // ============================================================
 if (!function_exists('king_fal_upload_storage')) {
+    // Returns a base64 data URI that Fal models accept directly as image_url.
+    // This avoids the need for a separate Fal storage upload API call.
     function king_fal_upload_storage($binary_data, $mime_type, $fal_api_key) {
-        $ext      = ($mime_type === 'image/png') ? 'png' : 'jpg';
-        $filename = 'upload-' . uniqid('', true) . '.' . $ext;
-
-        $init_body = json_encode(['file_name' => $filename, 'content_type' => $mime_type]);
-        $ch = curl_init('https://rest.fal.run/storage/upload/initiate');
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $init_body);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Key ' . $fal_api_key,
-            'Content-Type: application/json',
-        ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
-        $init_resp = curl_exec($ch);
-        $init_code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $init_err  = curl_error($ch);
-        curl_close($ch);
-
-        if (!empty($init_err) || $init_code !== 200) {
-            error_log("king_fal_upload_storage initiate: FAILED code={$init_code} err={$init_err} body=" . substr((string)$init_resp, 0, 300));
-            return '';
-        }
-        $init_data  = json_decode($init_resp, true);
-        $upload_url = $init_data['upload_url'] ?? '';
-        $file_url   = $init_data['file_url']   ?? '';
-        if (empty($upload_url) || empty($file_url)) {
-            error_log("king_fal_upload_storage: missing upload_url or file_url: " . substr((string)$init_resp, 0, 300));
-            return '';
-        }
-
-        $ch2 = curl_init($upload_url);
-        curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch2, CURLOPT_CUSTOMREQUEST, 'PUT');
-        curl_setopt($ch2, CURLOPT_POSTFIELDS, $binary_data);
-        curl_setopt($ch2, CURLOPT_HTTPHEADER, [
-            'Content-Type: ' . $mime_type,
-            'Content-Length: ' . strlen($binary_data),
-        ]);
-        curl_setopt($ch2, CURLOPT_TIMEOUT, 90);
-        curl_setopt($ch2, CURLOPT_CONNECTTIMEOUT, 20);
-        $put_resp = curl_exec($ch2);
-        $put_code = (int)curl_getinfo($ch2, CURLINFO_HTTP_CODE);
-        $put_err  = curl_error($ch2);
-        curl_close($ch2);
-
-        if (!empty($put_err) || ($put_code !== 200 && $put_code !== 204)) {
-            error_log("king_fal_upload_storage PUT: FAILED code={$put_code} err={$put_err}");
-            return '';
-        }
-
-        error_log("king_fal_upload_storage: OK url={$file_url}");
-        return (string)$file_url;
+        if (empty($binary_data)) return '';
+        $data_uri = 'data:' . $mime_type . ';base64,' . base64_encode($binary_data);
+        error_log("king_fal_upload_storage: returning data URI (" . strlen($binary_data) . " bytes)");
+        return $data_uri;
     }
 }
 
