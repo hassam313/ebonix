@@ -354,7 +354,7 @@ if (qa_is_logged_in()) {
         );
         $gallery_twins = qa_db_read_all_assoc(
             qa_db_query_sub(
-                'SELECT id, image_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',
+                'SELECT id, image_url, thumbnail_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',
                 (int)$userid
             )
         );

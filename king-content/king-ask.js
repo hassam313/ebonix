@@ -1281,6 +1281,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var refInput = document.getElementById('ref_image');
     var hasFile  = !!(refInput && refInput.files && refInput.files[0]);
 
+    // If any image is attached, always treat as i2i — PHP will route to Kontext
+    if (hasFile) isI2I = true;
+
     // Selfie model requires a photo
     if (isSelfie && !hasFile) {
         showErr('Please attach a photo above before generating.');
