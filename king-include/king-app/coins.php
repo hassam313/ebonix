@@ -134,9 +134,7 @@ function ebonix_model_to_video_tier($model_key) {
 
 function ebonix_get_addon_costs() {
     return [
-        'hd_export' => (int)(qa_opt('coin_cost_addon_hd')      ?: 150),
-        'upscale'   => (int)(qa_opt('coin_cost_addon_upscale')  ?: 75),
-        'priority'  => (int)(qa_opt('coin_cost_addon_priority') ?: 100),
+        'upscale' => (int)(qa_opt('coin_cost_addon_upscale') ?: 75),
     ];
 }
 

@@ -104,9 +104,7 @@ if (qa_is_logged_in()) {
     // Add-ons
     $addon_costs    = ebonix_get_addon_costs();
     $addon_total    = 0;
-    if (!empty($_POST['addon_hd']))       $addon_total += $addon_costs['hd_export'];
     if (!empty($_POST['addon_upscale']))  $addon_total += $addon_costs['upscale'];
-    if (!empty($_POST['addon_priority'])) $addon_total += $addon_costs['priority'];
     $vid_total_cost = $vid_base_cost + $addon_total;
 
     // Enforcement checks — non-admin only (admin can always generate)

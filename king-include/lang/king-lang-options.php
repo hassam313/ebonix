@@ -536,9 +536,7 @@
 'coin_cost_video_pro'      => 'Pro Video — Coin Cost (Seedance Pro):',
 'coin_cost_video_premium'  => 'Premium Video — Coin Cost (Kling 3 Pro):',
 // Add-on coin costs
-'coin_cost_addon_hd'       => 'HD Export Add-on — Coin Cost:',
 'coin_cost_addon_upscale'  => 'Upscale / Face Enhance Add-on — Coin Cost:',
-'coin_cost_addon_priority' => 'Priority Render Add-on — Coin Cost:',
 'coin_cost_twin'           => 'AI Twin Generation — Coin Cost:',
 
 	);

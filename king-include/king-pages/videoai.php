@@ -235,11 +235,14 @@ try {
     if (!$_vc) qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL');
     $gallery_twins_video = qa_db_read_all_assoc(
         qa_db_query_sub(
-            'SELECT id, image_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',
+            'SELECT id, image_url, thumbnail_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',
             (int)$userid
         )
     );
 } catch (Exception $e) { $gallery_twins_video = []; }
+
+if (!function_exists('king_ensure_twin_thumbnails')) require_once QA_INCLUDE_DIR . 'king-app/users.php';
+king_ensure_twin_thumbnails($gallery_twins_video);
 
 $king_ajax_url_video = rtrim((string)qa_opt('site_url'), '/') . '/king-include/king-ajax.php';
 
@@ -277,12 +280,16 @@ $cont .= '</div>';
 $cont .= '<div class="twin-gallery-scroll" id="twin-gallery-scroll-video">';
 if (!empty($gallery_twins_video)) {
     foreach ($gallery_twins_video as $gt) {
-        $vibe_esc = qa_html($gt['vibe']);
-        $url_js   = addslashes($gt['image_url']);
-        $vibe_js  = addslashes($gt['vibe']);
-        $cont .= '<div class="twin-gallery-item" data-url="' . qa_html($gt['image_url']) . '" data-vibe="' . $vibe_esc . '"';
+        $vibe_esc  = qa_html($gt['vibe']);
+        $thumb_src = !empty($gt['thumbnail_url']) ? $gt['thumbnail_url'] : $gt['image_url'];
+        $fetch_url = $thumb_src;
+        $url_js    = addslashes($fetch_url);
+        $vibe_js   = addslashes($gt['vibe']);
+        $cont .= '<div class="twin-gallery-item" data-url="' . qa_html($fetch_url) . '" data-vibe="' . $vibe_esc . '"';
         $cont .= ' onclick="videoTwinGallerySelect(this,\'' . $url_js . '\',\'' . $vibe_js . '\')">';
-        $cont .= '<img src="' . qa_html($gt['image_url']) . '" alt="' . $vibe_esc . '" loading="lazy">';
+        $cont .= '<img src="' . qa_html($thumb_src) . '" alt="' . $vibe_esc . '" loading="eager" decoding="async" width="110" height="110"'
+            . ' onerror="this.style.display=\'none\';this.parentNode.querySelector(\'.twin-gallery-broken\').style.display=\'flex\'">'
+            . '<div class="twin-gallery-broken" style="display:none"><i class="fa-solid fa-rotate-right"></i><span>Regenerate</span></div>';
         $cont .= '<span class="twin-gallery-vibe">' . $vibe_esc . '</span>';
         $cont .= '</div>';
     }

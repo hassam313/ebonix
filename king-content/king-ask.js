@@ -1462,19 +1462,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // ── Progress messages cycle ───────────────────────────────────────────
         var messages = [
-            'Sending to AI…',
-            'Processing your image…',
-            'Applying identity preservation…',
-            'Rendering details…',
-            'Finalizing…',
-            'Almost there…',
+            'This one bout to be fire… Give us a sec 🔥',
+            'We cookin right now… Hold on twin 👨‍🍳',
+            'Can\'t rush excellence… Hold on fam ✨',
         ];
+        var msgIdx = 0;
 
-        function updateSub(elapsed) {
-            var idx = Math.min(Math.floor(elapsed / 8), messages.length - 1);
-            if (subEl) subEl.textContent = messages[idx] + ' (' + elapsed + 's)';
+        function updateSub() {
+            if (subEl) subEl.textContent = messages[msgIdx % messages.length];
         }
-        updateSub(0);
+        updateSub();
+
+        var msgTimer = setInterval(function () {
+            msgIdx++;
+            updateSub();
+        }, 2500);
 
         // ── Cancel handler ────────────────────────────────────────────────────
         if (cancelEl) {
@@ -1482,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (cancelled) return;
                 cancelled = true;
                 clearInterval(timer);
+                clearInterval(msgTimer);
                 if (card) card.remove();
                 setLoading(false);
 
@@ -1514,11 +1517,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cancelled) return;
             pollCount++;
             var elapsed = Math.round((Date.now() - startTime) / 1000);
-            updateSub(elapsed);
 
             if (pollCount > maxPolls) {
                 completed = true;
                 clearInterval(timer);
+                clearInterval(msgTimer);
                 if (card) card.remove();
                 setLoading(false);
                 showErr('Generation is taking longer than expected. Your image may still be processing — refresh the page in a few minutes.');
@@ -1545,6 +1548,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (marker !== -1) {
                     completed = true;
                     clearInterval(timer);
+                    clearInterval(msgTimer);
                     if (card) card.remove();
                     setLoading(false);
                     _aigenerate_handle_response(raw, results, showErr, hideErr);
@@ -1558,6 +1562,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (resp.status === 'expired' || (resp.success === false && resp.status !== 'pending')) {
                     completed = true;
                     clearInterval(timer);
+                    clearInterval(msgTimer);
                     if (card) card.remove();
                     setLoading(false);
                     showErr(resp.message || 'Generation failed. Please try again.');

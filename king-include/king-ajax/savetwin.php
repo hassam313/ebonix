@@ -64,19 +64,28 @@ $col_check = (int)qa_db_read_one_value(qa_db_query_sub('SELECT COUNT(*) FROM INF
 if (!$col_check) qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL');
 
 // ── Generate local 600×600 thumbnail for fast display/selection ───────────────
+// Use curl (not file_get_contents) so SSL verification can be disabled on local dev.
 $thumbnail_url = '';
 try {
     set_time_limit(60);
-    $ctx = stream_context_create(['http' => [
-        'timeout' => 20,
-        'header'  => "User-Agent:EbonixBot/1.0\r\n",
-    ]]);
-    $raw = @file_get_contents($image_url, false, $ctx);
+    $ch = curl_init($image_url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT      => 'EbonixBot/1.0',
+    ]);
+    $raw  = curl_exec($ch);
+    $cerr = curl_error($ch);
+    curl_close($ch);
+    if ($cerr) error_log('savetwin: curl download error: ' . $cerr);
+
     if ($raw) {
         $src = @imagecreatefromstring($raw);
         if ($src) {
-            $ow = imagesx($src);
-            $oh = imagesy($src);
+            $ow    = imagesx($src);
+            $oh    = imagesy($src);
             $size  = 600;
             $scale = min($size / $ow, $size / $oh);
             $nw    = max(1, (int)($ow * $scale));
@@ -92,6 +101,7 @@ try {
 
             if (@imagewebp($dst, $destDir . $filename, 80)) {
                 $thumbnail_url = rtrim((string)qa_opt('site_url'), '/') . '/king-include/' . $folder . $filename;
+                error_log('savetwin: thumbnail saved ' . $thumbnail_url);
             }
             imagedestroy($dst);
         }

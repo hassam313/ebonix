@@ -330,9 +330,7 @@
 		'coin_cost_video_enhanced' => 'number',
 		'coin_cost_video_pro'      => 'number',
 		'coin_cost_video_premium'  => 'number',
-		'coin_cost_addon_hd'       => 'number',
 		'coin_cost_addon_upscale'  => 'number',
-		'coin_cost_addon_priority' => 'number',
 		'coin_cost_twin'           => 'number',
 		'plan_1' => 'checkbox',
 		'plan_2' => 'checkbox',
@@ -736,7 +734,7 @@
 				// ── Coin costs — Videos ──
 				'coin_cost_video_basic', 'coin_cost_video_enhanced', 'coin_cost_video_pro', 'coin_cost_video_premium', '',
 				// ── Coin costs — Add-ons ──
-				'coin_cost_addon_hd', 'coin_cost_addon_upscale', 'coin_cost_addon_priority', 'coin_cost_twin', '',
+				'coin_cost_addon_upscale', 'coin_cost_twin', '',
 				// ── Flex plan monthly coins + LLM router ──
 				'flex_plan_monthly_coins', 'enable_llm_router', '',
 				// ── Legacy plans 2-4 (kept for backwards compat) ──
@@ -781,9 +779,7 @@
 				'coin_cost_video_enhanced' => 'option_enable_membership',
 				'coin_cost_video_pro'      => 'option_enable_membership',
 				'coin_cost_video_premium'  => 'option_enable_membership',
-				'coin_cost_addon_hd'       => 'option_enable_membership',
 				'coin_cost_addon_upscale'  => 'option_enable_membership',
-				'coin_cost_addon_priority' => 'option_enable_membership',
 				'coin_cost_twin'           => 'option_enable_membership',
 				'flex_plan_monthly_coins'  => 'option_enable_membership',
 				'enable_llm_router'        => 'option_enable_membership',
@@ -1061,9 +1057,7 @@
 
 			$html .= '<div class="ebx-coin-costs-col">';
 			$html .= '<h4>Add-Ons</h4><ul>';
-			$html .= '<li>HD Export: <strong>' . number_format($addons['hd_export']) . ' coins</strong></li>';
 			$html .= '<li>Upscale: <strong>' . number_format($addons['upscale']) . ' coins</strong></li>';
-			$html .= '<li>Priority: <strong>' . number_format($addons['priority']) . ' coins</strong></li>';
 			$html .= '<li>AI Twin: <strong>' . number_format((int)(qa_opt('coin_cost_twin') ?: 120)) . ' coins</strong></li>';
 			$html .= '</ul></div>';
 

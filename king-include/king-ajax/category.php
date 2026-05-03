@@ -32,7 +32,7 @@
 
 	echo "QA_AJAX_RESPONSE\n1\n";
 
-	echo qa_html(strtr(@$fullcategory['content'], "\r\n", '  ')); // category description
+	echo qa_html(strtr((string)($fullcategory['content'] ?? ''), "\r\n", '  ')); // category description
 
 	foreach ($categories as $category)
 		echo "\n".$category['categoryid'].'/'.$category['title']; // subcategory information

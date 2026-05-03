@@ -1550,6 +1550,63 @@ function get_user_html( $user, $coversize = '1200', $class = null, $asize = '90'
 
 	return $html;
 }
+
+/**
+ * Ensures every twin in $twins has a valid local thumbnail_url.
+ * Downloads image_url, resizes to 400px WebP, saves locally, and updates the DB.
+ * One-time cost per twin — future page loads use the cached local file.
+ */
+function king_ensure_twin_thumbnails( array &$twins ) {
+    $site_url = rtrim( (string)qa_opt('site_url'), '/' );
+    $ki_base  = $site_url . '/king-include/';
+
+    foreach ( $twins as &$twin ) {
+        $local_ok = false;
+
+        if ( !empty( $twin['thumbnail_url'] ) ) {
+            if ( strpos( $twin['thumbnail_url'], $ki_base ) === 0 ) {
+                $local_ok = (bool)@file_exists( QA_INCLUDE_DIR . substr( $twin['thumbnail_url'], strlen( $ki_base ) ) );
+            } else {
+                $local_ok = true;
+            }
+            if ( !$local_ok ) $twin['thumbnail_url'] = null;
+        }
+
+        if ( $local_ok || empty( $twin['image_url'] ) ) continue;
+
+        $ctx = stream_context_create( [
+            'ssl'  => [ 'verify_peer' => false, 'verify_peer_name' => false ],
+            'http' => [ 'timeout' => 15, 'header' => "User-Agent: EbonixBot/1.0\r\n" ],
+        ] );
+        $raw = @file_get_contents( $twin['image_url'], false, $ctx );
+        if ( !$raw ) continue;
+
+        $src = @imagecreatefromstring( $raw );
+        if ( !$src ) continue;
+
+        $ow = imagesx( $src ); $oh = imagesy( $src );
+        $sz = 400; $sc = min( $sz / $ow, $sz / $oh );
+        $nw = max( 1, (int)( $ow * $sc ) ); $nh = max( 1, (int)( $oh * $sc ) );
+        $dst = imagecreatetruecolor( $nw, $nh );
+        imagecopyresampled( $dst, $src, 0, 0, 0, 0, $nw, $nh, $ow, $oh );
+        imagedestroy( $src );
+
+        $folder  = 'uploads/' . date('Y') . '/' . date('m') . '/';
+        $destDir = QA_INCLUDE_DIR . $folder;
+        if ( !is_dir( $destDir ) ) @mkdir( $destDir, 0755, true );
+        $fname = 'twin-' . uniqid( '', true ) . '.webp';
+
+        if ( @imagewebp( $dst, $destDir . $fname, 80 ) ) {
+            $thumb_url = $ki_base . $folder . $fname;
+            qa_db_query_sub( 'UPDATE ^king_twins SET thumbnail_url=$ WHERE id=#', $thumb_url, (int)$twin['id'] );
+            $twin['thumbnail_url'] = $thumb_url;
+            error_log( 'king_ensure_twin_thumbnails: saved thumbnail for twin id=' . $twin['id'] );
+        }
+        imagedestroy( $dst );
+    }
+    unset( $twin );
+}
+
 /**
  * @param $userid
  * @param $type

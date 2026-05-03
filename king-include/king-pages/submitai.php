@@ -363,6 +363,8 @@ if (qa_is_logged_in()) {
         );
     } catch (Exception $e) { $gallery_twins = []; }
 
+    king_ensure_twin_thumbnails($gallery_twins);
+
     $cont .= '<div class="twin-gallery-wrap" id="twin-gallery-wrap">';
     $cont .= '<div class="twin-gallery-header">';
     $cont .= '<i class="fa-solid fa-clone"></i> My Twins';
@@ -379,7 +381,11 @@ if (qa_is_logged_in()) {
             $vibe_js    = addslashes($gt['vibe']);
             $cont .= '<div class="twin-gallery-item" data-url="' . qa_html($fetch_url) . '" data-vibe="' . $vibe_esc . '"';
             $cont .= ' onclick="twinGallerySelect(this,\'' . $url_js . '\',\'' . $vibe_js . '\')">';
-            $cont .= '<img src="' . qa_html($thumb_src) . '" alt="' . $vibe_esc . '" loading="eager" decoding="async">';
+            $cont .= '<img src="' . qa_html($thumb_src) . '" alt="' . $vibe_esc . '" loading="eager" decoding="async" width="110" height="110"'
+                . ' onerror="this.style.display=\'none\';this.parentNode.querySelector(\'.twin-gallery-broken\').style.display=\'flex\'">'
+                . '<div class="twin-gallery-broken" style="display:none">'
+                . '<i class="fa-solid fa-rotate-right"></i><span>Regenerate</span>'
+                . '</div>';
             $cont .= '<span class="twin-gallery-vibe">' . $vibe_esc . '</span>';
             $cont .= '</div>';
         }
@@ -545,16 +551,14 @@ if (qa_is_logged_in()) {
 
     $cont .= '</div></div>'; // .kingai-buttons / .kingai-input
 
-    // ── Add-on toggles (HD Export / Priority) ───────────────────────────────
+    // ── Add-on toggles (Upscale only) ───────────────────────────────────────
     if (!function_exists('ebonix_get_addon_costs')) {
         require_once QA_INCLUDE_DIR . 'king-app/coins.php';
     }
     $_addon = ebonix_get_addon_costs();
     $cont .= '<div class="ebx-addon-row" id="ebx-addon-row">';
-    $cont .= '<label class="ebx-addon-toggle"><input type="checkbox" id="ebx-addon-hd" name="addon_hd" value="1">'
-        . '<span><i class="fa-solid fa-photo-film"></i> HD Export <em>+' . (int)$_addon['hd_export'] . ' coins</em></span></label>';
-    $cont .= '<label class="ebx-addon-toggle"><input type="checkbox" id="ebx-addon-priority" name="addon_priority" value="1">'
-        . '<span><i class="fa-solid fa-bolt"></i> Priority <em>+' . (int)$_addon['priority'] . ' coins</em></span></label>';
+    $cont .= '<label class="ebx-addon-toggle"><input type="checkbox" id="ebx-addon-upscale" name="addon_upscale" value="1">'
+        . '<span><i class="fa-solid fa-up-right-and-down-left-from-center"></i> Upscale <em>+' . (int)$_addon['upscale'] . ' coins</em></span></label>';
     $cont .= '</div>';
 
     // ── Coin cost preview bar ────────────────────────────────────────────────
@@ -591,8 +595,7 @@ if (qa_is_logged_in()) {
     $cont .= 'var EBONIX_UPLOAD_URL    = ' . json_encode($king_ajax_url) . ';';
     $cont .= 'var ebonix_qa_root       = ' . json_encode(rtrim(qa_opt('site_url'), '/') . '/') . ';';
     $cont .= 'var EBONIX_PHOTO_TIERS   = ' . json_encode($_tiers_js) . ';';
-    $cont .= 'var EBONIX_ADDON_HD      = ' . (int)$_addon['hd_export'] . ';';
-    $cont .= 'var EBONIX_ADDON_PRI     = ' . (int)$_addon['priority'] . ';';
+    $cont .= 'var EBONIX_ADDON_UPSCALE = ' . (int)$_addon['upscale'] . ';';
 
     $cont .= <<<'JS'
 
@@ -812,9 +815,48 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 }());
 
+// ── Twin Gallery: pre-cache blobs in background so clicks are instant ────────
+var _twinBlobCache = {};
+
+function _twinResizeAndCache(url, blob, cb) {
+    var objUrl = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+        var maxSide = 1024;
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (w > maxSide || h > maxSide) {
+            if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
+            else        { w = Math.round(w * maxSide / h); h = maxSide; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function (resized) {
+            URL.revokeObjectURL(objUrl);
+            if (resized) { _twinBlobCache[url] = resized; if (cb) cb(resized); }
+        }, 'image/jpeg', 0.85);
+    };
+    img.onerror = function () { URL.revokeObjectURL(objUrl); if (cb) cb(null); };
+    img.src = objUrl;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.twin-gallery-item[data-url]').forEach(function (item) {
+        var url = item.getAttribute('data-url');
+        if (!url || _twinBlobCache[url]) return;
+        _twinBlobCache[url] = 'loading';
+        fetch(url)
+            .then(function (r) { return r.ok ? r.blob() : null; })
+            .then(function (blob) {
+                if (!blob || blob.size < 100) { delete _twinBlobCache[url]; return; }
+                _twinResizeAndCache(url, blob, null);
+            })
+            .catch(function () { delete _twinBlobCache[url]; });
+    });
+});
+
 // ── Twin Gallery: select item as reference image ─────────────────────────────
 function twinGallerySelect(el, url, vibe) {
-    // Highlight selected item
     document.querySelectorAll('.twin-gallery-item').forEach(function (item) {
         item.classList.remove('twin-gallery-selected');
     });
@@ -832,7 +874,6 @@ function twinGallerySelect(el, url, vibe) {
             fileInput.files = dt.files;
         }
 
-        // Show preview chip explicitly — don't rely only on the change event
         var reader = new FileReader();
         reader.onload = function (e) {
             var thumb = document.getElementById('ref-image-thumb');
@@ -845,46 +886,52 @@ function twinGallerySelect(el, url, vibe) {
             if (btn)   btn.classList.add('has-image');
         };
         reader.readAsDataURL(file);
-
         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // Always use fetch→blob so the image is available as a File regardless of
-    // canvas cross-origin tainting (Fal CDN supports CORS but canvas tainting
-    // can still fail in some browsers depending on cache state).
-    fetch(url)
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-        .then(function (blob) { if (blob.size < 100) throw new Error('empty blob'); injectBlob(blob); })
-        .catch(function () {
-            // Last resort: load via canvas
-            var img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function () {
-                var maxSide = 1024;
-                var w = img.naturalWidth, h = img.naturalHeight;
-                if (w > maxSide || h > maxSide) {
-                    if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
-                    else        { w = Math.round(w * maxSide / h); h = maxSide; }
-                }
-                var canvas = document.createElement('canvas');
-                canvas.width = w; canvas.height = h;
-                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                canvas.toBlob(function (blob) { injectBlob(blob); }, 'image/jpeg', 0.85);
-            };
-            img.onerror = function () {
-                // Both fetch and canvas failed — twin image URL is expired or inaccessible.
-                // Deselect the item and tell the user clearly so they know to re-save.
-                document.querySelectorAll('.twin-gallery-item').forEach(function (item) {
-                    item.classList.remove('twin-gallery-selected');
-                });
-                var errEl = document.getElementById('ai-error');
-                if (errEl) {
-                    errEl.textContent = 'This twin image could not be loaded (the URL may have expired). Please open AI Twin, regenerate, and save it again.';
-                    errEl.style.display = 'block';
-                }
-            };
-            img.src = url;
-        });
+    function fetchAndInject() {
+        fetch(url)
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+            .then(function (blob) {
+                if (blob.size < 100) throw new Error('empty blob');
+                _twinResizeAndCache(url, blob, injectBlob);
+            })
+            .catch(function () {
+                var img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function () {
+                    var maxSide = 1024;
+                    var w = img.naturalWidth, h = img.naturalHeight;
+                    if (w > maxSide || h > maxSide) {
+                        if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
+                        else        { w = Math.round(w * maxSide / h); h = maxSide; }
+                    }
+                    var canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function (blob) { injectBlob(blob); }, 'image/jpeg', 0.85);
+                };
+                img.onerror = function () {
+                    document.querySelectorAll('.twin-gallery-item').forEach(function (item) {
+                        item.classList.remove('twin-gallery-selected');
+                    });
+                    var errEl = document.getElementById('ai-error');
+                    if (errEl) {
+                        errEl.textContent = 'This twin image could not be loaded (the URL may have expired). Please open AI Twin, regenerate, and save it again.';
+                        errEl.style.display = 'block';
+                    }
+                };
+                img.src = url;
+            });
+    }
+
+    // Use pre-cached blob if ready — otherwise fetch now
+    var cached = _twinBlobCache[url];
+    if (cached && cached !== 'loading') {
+        injectBlob(cached);
+    } else {
+        fetchAndInject();
+    }
 }
 
 JS;
