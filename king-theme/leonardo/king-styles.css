@@ -8361,6 +8361,20 @@ font-size:16px;
    MY PLAN PAGE
    ═══════════════════════════════════════════════════════════════════════════ */
 
+.myplan-success-banner {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #fff;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.myplan-success-banner i { color: #a78bfa; font-size: 18px; }
+
 .myplan-card {
     background: #fff;
     border-radius: 14px;

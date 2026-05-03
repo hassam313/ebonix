@@ -27,6 +27,52 @@ if (!$userid) {
 $qa_content          = qa_content_prepare();
 $qa_content['title'] = 'My Plan';
 
+// ── Stripe top-up verification (fallback for when webhook hasn't fired) ───────
+$topup_notice = '';
+$stripe_session_id = trim((string)($_GET['session_id'] ?? ''));
+if (!empty($stripe_session_id) && ($_GET['topup'] ?? '') === 'success' && qa_opt('enable_stripe') && qa_opt('stripe_skey')) {
+    try {
+        require_once QA_INCLUDE_DIR . 'stripe/init.php';
+        \Stripe\Stripe::setApiKey(qa_opt('stripe_skey'));
+        $sess = \Stripe\Checkout\Session::retrieve($stripe_session_id);
+
+        // Only process paid sessions for this user that are coin top-ups
+        if (
+            $sess &&
+            $sess->payment_status === 'paid' &&
+            isset($sess->metadata['type']) && $sess->metadata['type'] === 'coin_topup' &&
+            (int)($sess->metadata['user_id'] ?? 0) === (int)$userid
+        ) {
+            // Check we haven't already processed this session
+            $already = qa_db_read_one_value(
+                qa_db_query_sub('SELECT COUNT(*) FROM ^king_payments WHERE transaction_id=$', $sess->id),
+                true
+            );
+            if (!$already) {
+                $coins     = (int)($sess->metadata['coins'] ?? 0);
+                $pack_name = $sess->metadata['pack_name'] ?? '';
+                if ($coins > 0) {
+                    ebonix_grant_topup_coins((int)$userid, $coins, $pack_name);
+                    $amount_paid = ($sess->amount_total ?? 0) / 100;
+                    try {
+                        qa_db_query_sub(
+                            'INSERT INTO ^king_payments (user_id, plan, amount, currency, gateway, transaction_id, status, coins_added, topup_pack, created_at)
+                             VALUES (#, #, #, $, $, $, $, #, $, NOW())',
+                            (int)$userid, 0, (float)$amount_paid, 'USD', 'stripe',
+                            $sess->id, 'completed', $coins, $pack_name
+                        );
+                    } catch (Exception $e) { /* ignore duplicate */ }
+                    $topup_notice = '<div class="myplan-success-banner"><i class="fa-solid fa-coins"></i> ' . number_format($coins) . ' coins added to your balance!</div>';
+                }
+            } else {
+                $topup_notice = '<div class="myplan-success-banner"><i class="fa-solid fa-check"></i> Top-up already applied. Your coins are in your balance.</div>';
+            }
+        }
+    } catch (Exception $e) {
+        error_log('myplan topup verify error: ' . $e->getMessage());
+    }
+}
+
 // ── Auto-downgrade expired plans ─────────────────────────────────────────────
 $expiry_date = qa_db_usermeta_get($userid, 'membership');
 if ($expiry_date && date('Y-m-d') > $expiry_date) {
@@ -125,7 +171,11 @@ $qa_root       = $site_url_trim . '/';
 // BUILD PAGE HTML
 // ═════════════════════════════════════════════════════════════════════════════
 $cont = '';
- 
+
+if (!empty($topup_notice)) {
+    $cont .= $topup_notice;
+}
+
 // ── SECTION 1 — Current Plan Status ──────────────────────────────────────────
 $cont .= '<div class="myplan-card">';
 $cont .= '<div class="myplan-card-header"><i class="fa-solid fa-id-card"></i> Current Plan</div>';

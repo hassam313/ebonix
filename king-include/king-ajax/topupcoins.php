@@ -43,7 +43,7 @@ if (qa_opt('enable_cashapp')) {
 }
 
 $site_url    = rtrim((string)qa_opt('site_url'), '/');
-$success_url = $site_url . '/myplan?topup=success&pack=' . urlencode($selected['pack_name']);
+$success_url = $site_url . '/myplan?topup=success&pack=' . urlencode($selected['pack_name']) . '&session_id={CHECKOUT_SESSION_ID}';
 $cancel_url  = $site_url . '/membership#topup';
 
 try {
