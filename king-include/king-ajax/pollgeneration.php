@@ -4,8 +4,15 @@ if (!defined('QA_VERSION')) { header('Location: ../'); exit; }
 header('Content-Type: application/json');
 
 require_once QA_INCLUDE_DIR . 'king-app/users.php';
-require_once QA_INCLUDE_DIR . 'king-app/coins.php';
+require_once QA_INCLUDE_DIR . 'king-app/limits.php';
+require_once QA_INCLUDE_DIR . 'king-db/selects.php';
+require_once QA_INCLUDE_DIR . 'king-app-video.php';
+require_once QA_INCLUDE_DIR . 'king-app/cookies.php';
+require_once QA_INCLUDE_DIR . 'king-db/metas.php';
 require_once QA_INCLUDE_DIR . 'king-app/gateway.php';
+require_once QA_INCLUDE_DIR . 'king-app/blobs.php';
+require_once QA_INCLUDE_DIR . 'king-app/post-create.php';
+require_once QA_INCLUDE_DIR . 'king-app/coins.php';
 
 if (!session_id()) @session_start();
 
