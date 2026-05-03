@@ -1,0 +1,17 @@
+[Unit]
+Description=Ebonix AI Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/ebonix.ai/ebonix_gateway
+ExecStart=/usr/bin/python3 /var/www/ebonix.ai/ebonix_gateway/run.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/var/www/ebonix.ai/.env
+
+[Install]
+WantedBy=multi-user.target

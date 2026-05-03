@@ -1,0 +1,30 @@
+# ── Secrets — NEVER commit these ──────────────────────────────────────────────
+king-config.php
+.env
+.env.*
+ebonix_gateway/config.py
+ebonix_gateway/.env
+ebonix_gateway/gateway.log
+CLAUDE.md
+
+# ── Debug / test files ─────────────────────────────────────────────────────────
+debug.php
+test.php
+test_gateway.php
+test_gateway_connection.php
+check_gateway.sh
+replacements.txt
+
+# ── Uploaded user content — do not commit ─────────────────────────────────────
+king-include/uploads/
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+ebonix_gateway/__pycache__/
+ebonix_gateway/*.pyc
+ebonix_gateway/gateway_storage/
+
+# ── OS / editor junk ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
