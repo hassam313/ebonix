@@ -916,10 +916,15 @@ if (!$gemini_processed && empty($image_urls)) {
     // ──────────────────────────────────────────────────────────────────────
     if ($aiselect === 'fluxkon_selfie') {
 
-        $fal_api_key = qa_opt('fal_api');
+        // Resolve the Fal API key: try fal_api, then studio key, then any configured ebonix key
+        $fal_api_key = trim((string)qa_opt('fal_api'));
+        if (empty($fal_api_key)) $fal_api_key = trim((string)qa_opt('fal_key_ebonix_studio'));
+        if (empty($fal_api_key)) $fal_api_key = trim((string)qa_opt('fal_key_ebonix_10'));
+        if (empty($fal_api_key)) $fal_api_key = trim((string)qa_opt('fal_key_ebonix_20'));
+        if (empty($fal_api_key)) $fal_api_key = trim((string)qa_opt('fal_key_ebonix_pro'));
 
         if (empty($fal_api_key)) {
-            $error = 'Fal AI API key not configured. Go to Admin → AI Settings and add your Fal API Key.';
+            $error = 'Fal AI API key not configured. Go to Admin → Ebonix Images and add your Fal API Key.';
         } elseif ($ref_binary === false) {
             // THE CRITICAL FIX: old code checked `empty($imageid)` here which
             // always failed in the new flow. We check $ref_binary instead.
