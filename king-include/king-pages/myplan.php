@@ -48,8 +48,9 @@ try {
     );
 } catch (Exception $e) { /* table exists */ }
 // Add missing columns to pre-existing tables
-foreach (['coins_added INT DEFAULT 0', 'topup_pack VARCHAR(50) DEFAULT \'\''] as $_col_def) {
-    qa_db_query_sub('ALTER TABLE ^king_payments ADD COLUMN IF NOT EXISTS ' . $_col_def);
+foreach (['coins_added' => 'coins_added INT DEFAULT 0', 'topup_pack' => 'topup_pack VARCHAR(50) DEFAULT \'\''] as $_col_name => $_col_def) {
+    $_col_exists = (int)qa_db_read_one_value(qa_db_query_sub('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=$ AND COLUMN_NAME=$', QA_MYSQL_TABLE_PREFIX.'king_payments', $_col_name), true);
+    if (!$_col_exists) qa_db_query_sub('ALTER TABLE ^king_payments ADD COLUMN ' . $_col_def);
 }
 
 // ── Stripe top-up verification (fallback for when webhook hasn't fired) ───────

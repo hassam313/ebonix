@@ -353,7 +353,8 @@ if (qa_is_logged_in()) {
               KEY `user_id` (`user_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
-        qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN IF NOT EXISTS thumbnail_url TEXT DEFAULT NULL');
+        $col_check = (int)qa_db_read_one_value(qa_db_query_sub('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=$ AND COLUMN_NAME=$', QA_MYSQL_TABLE_PREFIX.'king_twins', 'thumbnail_url'), true);
+        if (!$col_check) qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL');
         $gallery_twins = qa_db_read_all_assoc(
             qa_db_query_sub(
                 'SELECT id, image_url, thumbnail_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',

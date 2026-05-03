@@ -60,7 +60,8 @@ qa_db_query_sub(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
 );
 
-qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN IF NOT EXISTS thumbnail_url TEXT DEFAULT NULL');
+$col_check = (int)qa_db_read_one_value(qa_db_query_sub('SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=$ AND COLUMN_NAME=$', QA_MYSQL_TABLE_PREFIX.'king_twins', 'thumbnail_url'), true);
+if (!$col_check) qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL');
 
 // ── Generate local 600×600 thumbnail for fast display/selection ───────────────
 $thumbnail_url = '';
