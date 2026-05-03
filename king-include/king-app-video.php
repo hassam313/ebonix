@@ -456,6 +456,13 @@ function king_convert_to_webp($sourcePath, $destPath, $quality = 90) {
 	return $result;
 }
 
+// Store a CDN URL directly without downloading — used for Fal/external-CDN results
+// to avoid slow GD processing on the server. type='cdn' signals king_get_uploads to
+// use content as a full URL rather than a relative local path.
+function king_store_cdn_url($url, $width = null, $height = null) {
+    return king_insert_uploads($url, 'webp', $width, $height, 'cdn');
+}
+
 function king_urlupload($imageUrl, $waterk = null, $resize = null) {
     // Increase timeout for this operation
     set_time_limit(180);

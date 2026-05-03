@@ -814,49 +814,59 @@ function twinGallerySelect(el, url, vibe) {
     });
     el.classList.add('twin-gallery-selected');
 
-    // Load image, resize to max 1024px, inject into ref_image input
-    var img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function () {
-        var maxSide = 1024;
-        var w = img.naturalWidth, h = img.naturalHeight;
-        if (w > maxSide || h > maxSide) {
-            if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
-            else        { w = Math.round(w * maxSide / h); h = maxSide; }
+    function injectBlob(blob) {
+        var filename = 'twin-' + (vibe || 'ref') + '.jpg';
+        var file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+        var fileInput = document.getElementById('ref_image');
+        if (!fileInput) return;
+
+        if (window.DataTransfer) {
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
         }
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob(function (blob) {
-            var filename = 'twin-' + (vibe || 'ref') + '.jpg';
-            var file = new File([blob], filename, { type: 'image/jpeg' });
-            var fileInput = document.getElementById('ref_image');
-            if (fileInput && window.DataTransfer) {
-                var dt = new DataTransfer();
-                dt.items.add(file);
-                fileInput.files = dt.files;
-                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }, 'image/jpeg', 0.85);
-    };
-    img.onerror = function () {
-        // If cross-origin blocked, fall back to direct URL injection via fetch→blob
-        fetch(url)
-            .then(function (r) { return r.blob(); })
-            .then(function (blob) {
-                var filename = 'twin-' + (vibe || 'ref') + '.jpg';
-                var file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
-                var fileInput = document.getElementById('ref_image');
-                if (fileInput && window.DataTransfer) {
-                    var dt = new DataTransfer();
-                    dt.items.add(file);
-                    fileInput.files = dt.files;
-                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Show preview chip explicitly — don't rely only on the change event
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var thumb = document.getElementById('ref-image-thumb');
+            var chip  = document.getElementById('ref-image-chipname');
+            var wrap  = document.getElementById('ref-image-preview-wrap');
+            var btn   = document.getElementById('ref-image-btn');
+            if (thumb) thumb.src = e.target.result;
+            if (chip)  chip.textContent = filename;
+            if (wrap)  wrap.style.display = 'block';
+            if (btn)   btn.classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // Always use fetch→blob so the image is available as a File regardless of
+    // canvas cross-origin tainting (Fal CDN supports CORS but canvas tainting
+    // can still fail in some browsers depending on cache state).
+    fetch(url)
+        .then(function (r) { return r.blob(); })
+        .then(function (blob) { injectBlob(blob); })
+        .catch(function () {
+            // Last resort: load via canvas
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function () {
+                var maxSide = 1024;
+                var w = img.naturalWidth, h = img.naturalHeight;
+                if (w > maxSide || h > maxSide) {
+                    if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
+                    else        { w = Math.round(w * maxSide / h); h = maxSide; }
                 }
-            })
-            .catch(function () {});
-    };
-    img.src = url;
+                var canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob(function (blob) { injectBlob(blob); }, 'image/jpeg', 0.85);
+            };
+            img.src = url;
+        });
 }
 
 JS;

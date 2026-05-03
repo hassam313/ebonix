@@ -1022,7 +1022,7 @@ function king_get_uploads($upid)
 	$query = qa_db_query_sub('SELECT * FROM ^uploads WHERE id=$ ', $upid);
 	$cont  = qa_db_read_one_assoc($query, true);
 	if ($cont) {
-		if ( 'aws' === $cont['type'] || 'wasabi' === $cont['type'] ) {
+		if ( 'aws' === $cont['type'] || 'wasabi' === $cont['type'] || 'cdn' === $cont['type'] ) {
 			$cont['furl'] = qa_html($cont['content']);
 		} else {
 			$cont['furl'] = qa_html(rtrim((string)qa_opt('site_url'), '/') . '/king-include/' . $cont['content']);

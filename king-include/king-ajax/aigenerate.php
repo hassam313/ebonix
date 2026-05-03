@@ -1590,18 +1590,34 @@ if (!empty($error)) {
 // PROCESS URL-BASED RESULTS (Fal, DALL-E, KingStudio)
 // ============================================================
 if (!$gemini_processed && !empty($image_urls)) {
+    // Fal CDN URLs (fal.media / fal.run) are stored directly — no GD processing.
+    // This makes VPS responses instant instead of taking 2+ minutes per image.
+    $is_fal_url = !empty($image_urls[0]) && (
+        strpos($image_urls[0], 'fal.media') !== false ||
+        strpos($image_urls[0], 'fal.run') !== false
+    );
+
     foreach ($image_urls as $image_url) {
         $image_url = trim((string)$image_url);
         if ($image_url === '') continue;
         error_log("Saving image from URL: " . $image_url);
         try {
-            $thumb = king_urlupload($image_url, true, 600);
-            if (!empty($thumb)) $thumbs[] = $thumb;
-            $upload_response = king_urlupload($image_url);
-            if (!empty($upload_response)) {
-                $uploaded_images[] = $upload_response;
+            if ($is_fal_url) {
+                // Fast path: store CDN URL directly, skip download + GD conversion
+                $cdn_rec = king_store_cdn_url($image_url);
+                if (!empty($cdn_rec)) {
+                    $thumbs[]         = $cdn_rec;
+                    $uploaded_images[] = $cdn_rec;
+                }
             } else {
-                error_log("king_urlupload returned empty for: " . $image_url);
+                $thumb = king_urlupload($image_url, true, 600);
+                if (!empty($thumb)) $thumbs[] = $thumb;
+                $upload_response = king_urlupload($image_url);
+                if (!empty($upload_response)) {
+                    $uploaded_images[] = $upload_response;
+                } else {
+                    error_log("king_urlupload returned empty for: " . $image_url);
+                }
             }
         } catch (Exception $e) {
             error_log("Image upload failed: " . $e->getMessage());
