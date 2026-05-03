@@ -3,6 +3,7 @@ if (!defined('QA_VERSION')) { header('Location: ../'); exit; }
 
 header('Content-Type: application/json');
 
+require_once QA_INCLUDE_DIR . 'king-app/users.php';
 require_once QA_INCLUDE_DIR . 'king-app/coins.php';
 require_once QA_INCLUDE_DIR . 'king-app/gateway.php';
 
@@ -41,7 +42,13 @@ if (!empty($job['expiry']) && time() > (int)$job['expiry']) {
     exit;
 }
 
-$response_url = (string)($job['response_url'] ?? '');
+$response_url  = (string)($job['response_url'] ?? '');
+$request_id_fb = (string)($job['request_id'] ?? '');
+// Fallback: construct response_url from request_id if missing (king_fal_queue_submit omits it)
+if (empty($response_url) && !empty($request_id_fb)) {
+    $response_url = 'https://queue.fal.run/fal-ai/flux-pro/kontext/requests/' . $request_id_fb;
+    error_log("pollgeneration: response_url was empty, constructed from request_id: {$response_url}");
+}
 if (empty($response_url)) {
     echo json_encode(['success' => false, 'status' => 'expired', 'message' => 'No response URL in job. Please try again.']);
     exit;

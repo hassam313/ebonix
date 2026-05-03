@@ -1005,7 +1005,7 @@ if (!$gemini_processed && empty($image_urls)) {
                 ];
 
                 error_log("Fal: submitting job to fal-ai/flux-pro/kontext");
-                $submit = king_fal_queue_submit('fal-ai/flux-pro/kontext', $fal_payload, $fal_api_key);
+                $submit = king_fal_ebonix_submit('fal-ai/flux-pro/kontext', $fal_payload, $fal_api_key);
 
                 if (!empty($submit['error'])) {
                     $error = $submit['error'];
