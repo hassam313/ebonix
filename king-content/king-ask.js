@@ -1386,6 +1386,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var maxPolls  = 36; // 36 × 5s = 3 min max
         var startTime = Date.now();
         var cancelled = false;
+        var completed = false; // set true on first QA_AJAX_RESPONSE so late in-flight polls don't show errors
         var timer;
 
         // ── Remove any leftover status card ──────────────────────────────────
@@ -1518,6 +1519,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateSub(elapsed);
 
             if (pollCount > maxPolls) {
+                completed = true;
                 clearInterval(timer);
                 if (card) card.remove();
                 setLoading(false);
@@ -1537,12 +1539,13 @@ document.addEventListener('DOMContentLoaded', function() {
             pxhr.timeout = 20000;
 
             pxhr.onload = function () {
-                if (cancelled || pxhr.status < 200 || pxhr.status >= 300) return;
+                if (cancelled || completed || pxhr.status < 200 || pxhr.status >= 300) return;
 
                 var raw    = pxhr.responseText;
                 var marker = raw.indexOf('QA_AJAX_RESPONSE');
 
                 if (marker !== -1) {
+                    completed = true;
                     clearInterval(timer);
                     if (card) card.remove();
                     setLoading(false);
@@ -1555,6 +1558,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!resp) return;
 
                 if (resp.status === 'expired' || (resp.success === false && resp.status !== 'pending')) {
+                    completed = true;
                     clearInterval(timer);
                     if (card) card.remove();
                     setLoading(false);
