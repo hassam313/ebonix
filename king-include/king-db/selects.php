@@ -1025,7 +1025,7 @@ function king_get_uploads($upid)
 		if ( 'aws' === $cont['type'] || 'wasabi' === $cont['type'] ) {
 			$cont['furl'] = qa_html($cont['content']);
 		} else {
-			$cont['furl'] = qa_html(current_url() . 'king-include/' . $cont['content']);
+			$cont['furl'] = qa_html(rtrim((string)qa_opt('site_url'), '/') . '/king-include/' . $cont['content']);
 			$cont['path'] = QA_INCLUDE_DIR . $cont['content'];
 		}
 		return $cont;

@@ -100,7 +100,7 @@ class Ebonix_Gateway {
             $headers[] = 'Authorization: Bearer ' . $gateway_token;
         }
 
-        $ch = curl_init($gateway_url . '/generate/image');
+        $ch = curl_init($gateway_url . '/generate-image');
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
