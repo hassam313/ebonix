@@ -27,6 +27,31 @@ if (!$userid) {
 $qa_content          = qa_content_prepare();
 $qa_content['title'] = 'My Plan';
 
+// ── Ensure king_payments table has all required columns ──────────────────────
+try {
+    qa_db_query_sub(
+        'CREATE TABLE IF NOT EXISTS `^king_payments` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `user_id` int(11) NOT NULL,
+          `plan` tinyint(2) NOT NULL DEFAULT 0,
+          `amount` decimal(10,2) NOT NULL DEFAULT 0.00,
+          `currency` varchar(10) DEFAULT \'USD\',
+          `gateway` varchar(20) NOT NULL,
+          `transaction_id` varchar(255) DEFAULT NULL,
+          `status` varchar(20) DEFAULT \'completed\',
+          `coins_added` int(11) DEFAULT 0,
+          `topup_pack` varchar(50) DEFAULT \'\',
+          `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          KEY `user_id` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+    );
+} catch (Exception $e) { /* table exists */ }
+// Add missing columns to pre-existing tables
+foreach (['coins_added INT DEFAULT 0', 'topup_pack VARCHAR(50) DEFAULT \'\''] as $_col_def) {
+    try { qa_db_query_sub('ALTER TABLE ^king_payments ADD COLUMN ' . $_col_def); } catch (Exception $e) { /* already exists */ }
+}
+
 // ── Stripe top-up verification (fallback for when webhook hasn't fired) ───────
 $topup_notice = '';
 $stripe_session_id = trim((string)($_GET['session_id'] ?? ''));
@@ -133,21 +158,8 @@ $has_active_sub = !empty($stripe_sub_id) || !empty($paypal_sub_id);
 // ── Billing history ───────────────────────────────────────────────────────────
 $billing_history = array();
 try {
-    qa_db_query_sub(
-        'CREATE TABLE IF NOT EXISTS `^king_payments` (
-          `id` int(11) NOT NULL AUTO_INCREMENT,
-          `user_id` int(11) NOT NULL,
-          `plan` tinyint(2) NOT NULL,
-          `amount` decimal(10,2) NOT NULL DEFAULT 0.00,
-          `currency` varchar(10) DEFAULT \'USD\',
-          `gateway` varchar(20) NOT NULL,
-          `transaction_id` varchar(255) DEFAULT NULL,
-          `status` varchar(20) DEFAULT \'completed\',
-          `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY (`id`),
-          KEY `user_id` (`user_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
-    );
+    // Table already ensured at top of page — just query directly
+    $dummy = null;
     $billing_history = qa_db_read_all_assoc(
         qa_db_query_sub(
             'SELECT plan, amount, currency, gateway, transaction_id, status, created_at FROM ^king_payments WHERE user_id=# ORDER BY created_at DESC LIMIT 5',
