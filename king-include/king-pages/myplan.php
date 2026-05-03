@@ -49,7 +49,7 @@ try {
 } catch (Exception $e) { /* table exists */ }
 // Add missing columns to pre-existing tables
 foreach (['coins_added INT DEFAULT 0', 'topup_pack VARCHAR(50) DEFAULT \'\''] as $_col_def) {
-    try { qa_db_query_sub('ALTER TABLE ^king_payments ADD COLUMN ' . $_col_def); } catch (Exception $e) { /* already exists */ }
+    qa_db_query_sub('ALTER TABLE ^king_payments ADD COLUMN IF NOT EXISTS ' . $_col_def);
 }
 
 // ── Stripe top-up verification (fallback for when webhook hasn't fired) ───────

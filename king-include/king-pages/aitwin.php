@@ -177,6 +177,7 @@ try {
           `id` int(11) NOT NULL AUTO_INCREMENT,
           `user_id` int(11) NOT NULL,
           `image_url` text NOT NULL,
+          `thumbnail_url` text DEFAULT NULL,
           `vibe` varchar(64) NOT NULL,
           `format` varchar(16) NOT NULL DEFAULT \'4:5\',
           `details` text,
@@ -185,6 +186,7 @@ try {
           KEY `user_id` (`user_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
     );
+    qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN IF NOT EXISTS thumbnail_url TEXT DEFAULT NULL');
 } catch (Exception $e) {
     error_log('aitwin: table create error: ' . $e->getMessage());
 }

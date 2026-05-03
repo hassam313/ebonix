@@ -60,10 +60,7 @@ qa_db_query_sub(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
 );
 
-// Add thumbnail_url column if table pre-existed without it
-try {
-    qa_db_query_sub("ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL");
-} catch (Exception $e) { /* column already exists — ignore */ }
+qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN IF NOT EXISTS thumbnail_url TEXT DEFAULT NULL');
 
 // ── Generate local 600×600 thumbnail for fast display/selection ───────────────
 $thumbnail_url = '';

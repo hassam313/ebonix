@@ -1011,19 +1011,30 @@ if (!$gemini_processed && empty($image_urls)) {
                     $error = $submit['error'];
                     error_log("Fal submit error: {$error}");
                 } else {
-                    $request_id = $submit['request_id'];
+                    $request_id   = $submit['request_id'];
+                    $response_url = $submit['response_url'] ?? '';
                     error_log("Fal: job submitted request_id={$request_id}");
 
-                    // ── Poll ──────────────────────────────────────────────
-                    $poll = king_fal_queue_poll('fal-ai/flux-pro/kontext', $request_id, $fal_api_key, 90, 5);
-
-                    if (!empty($poll['error'])) {
-                        $error = $poll['error'];
-                        error_log("Fal poll error: {$error}");
-                    } else {
-                        $image_urls = $poll['urls'];
-                        error_log("✅ Fal Kontext SUCCESS: " . count($image_urls) . " image(s)");
-                    }
+                    // ── Async: store job in session and return immediately ─
+                    // JS will poll /pollgeneration every 5s instead of blocking PHP
+                    if (!session_id()) @session_start();
+                    $job_token = bin2hex(random_bytes(12));
+                    $_SESSION['fal_job_' . $job_token] = [
+                        'response_url' => $response_url,
+                        'request_id'   => $request_id,
+                        'user_id'      => (int)$userid,
+                        'coins'        => (int)$img_total_cost,
+                        'model'        => 'fluxkon_selfie',
+                        'aistyle'      => (string)$aistyle,
+                        'expiry'       => time() + 1800,
+                    ];
+                    echo "QA_AJAX_RESPONSE\n1\n" . json_encode([
+                        'success'    => true,
+                        'status'     => 'queued',
+                        'job_token'  => $job_token,
+                        'message'    => 'Generating your image — this takes 1–3 minutes. We\'ll check automatically.',
+                    ]) . "\n";
+                    exit;
                 }
             }
         }

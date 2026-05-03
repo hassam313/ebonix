@@ -99,6 +99,7 @@
 			'getcoins' => 'getcoins.php',
 			'topupcoins' => 'topupcoins.php',
 			'aichat' => 'aichat.php',
+			'pollgeneration' => 'pollgeneration.php',
 
 		);
 

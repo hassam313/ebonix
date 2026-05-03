@@ -1351,12 +1351,15 @@ document.addEventListener('DOMContentLoaded', function() {
         xhr.timeout = 660000; // 11 min — enough for Fal AI (up to 7.5 min) + gateway
 
         xhr.onload = function () {
-            setLoading(false);
             if (xhr.status < 200 || xhr.status >= 300) {
+                setLoading(false);
                 showErr('Server error (HTTP ' + xhr.status + '). Please try again.');
                 return;
             }
-            _aigenerate_handle_response(xhr.responseText, results, showErr, hideErr);
+            _aigenerate_handle_response(xhr.responseText, results, showErr, hideErr, function (jobToken) {
+                setLoading(false);
+                startPolling(jobToken);
+            });
         };
 
         xhr.onerror = function () {
@@ -1375,6 +1378,88 @@ document.addEventListener('DOMContentLoaded', function() {
             setLoading(false);
             showErr('Could not send request: ' + (e.message || String(e)));
         }
+    }
+
+    /* ── Async job polling (for fluxkon_selfie / Fal Kontext queue) ─────── */
+    function startPolling(jobToken) {
+        var pollCount   = 0;
+        var maxPolls    = 36; // 36 × 5s = 3 minutes
+        var startTime   = Date.now();
+        var statusEl    = document.getElementById('ebx-poll-status');
+
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.id = 'ebx-poll-status';
+            statusEl.style.cssText = 'margin:12px 0;padding:12px 16px;background:#1a1a2e;border:1px solid #3a3a5c;border-radius:10px;color:#a0a0c0;font-size:13px;text-align:center;';
+            if (results) results.parentNode.insertBefore(statusEl, results);
+            else document.body.appendChild(statusEl);
+        }
+
+        function updateStatus(msg) {
+            if (statusEl) statusEl.textContent = msg;
+        }
+
+        updateStatus('Generating your image... (0s)');
+
+        var timer = setInterval(function () {
+            pollCount++;
+            var elapsed = Math.round((Date.now() - startTime) / 1000);
+            updateStatus('Generating your image... (' + elapsed + 's)');
+
+            if (pollCount > maxPolls) {
+                clearInterval(timer);
+                if (statusEl) statusEl.remove();
+                setLoading(false);
+                showErr('Generation is taking longer than expected. Your image may still be processing — refresh the page in a few minutes to see results.');
+                return;
+            }
+
+            var pfd = new FormData();
+            pfd.append('qa_operation', 'pollgeneration');
+            pfd.append('qa_request',   'submitai');
+            pfd.append('qa_root',      qaRoot);
+            pfd.append('job_token',    jobToken);
+
+            var pxhr = new XMLHttpRequest();
+            pxhr.open('POST', ajaxUrl, true);
+            pxhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            pxhr.timeout = 20000;
+
+            pxhr.onload = function () {
+                if (pxhr.status < 200 || pxhr.status >= 300) return;
+
+                var raw    = pxhr.responseText;
+                var marker = raw.indexOf('QA_AJAX_RESPONSE');
+
+                if (marker !== -1) {
+                    clearInterval(timer);
+                    if (statusEl) statusEl.remove();
+                    setLoading(false);
+                    _aigenerate_handle_response(raw, results, showErr, hideErr);
+                    return;
+                }
+
+                var resp = null;
+                try { resp = JSON.parse(raw.trim()); } catch (e) {}
+                if (!resp) return;
+
+                if (resp.status === 'expired' || (resp.success === false && resp.status !== 'pending')) {
+                    clearInterval(timer);
+                    if (statusEl) statusEl.remove();
+                    setLoading(false);
+                    showErr(resp.message || 'Generation failed. Please try again.');
+                    return;
+                }
+
+                if (resp.queue_position) {
+                    updateStatus('In queue (position ' + resp.queue_position + ')... (' + elapsed + 's)');
+                }
+            };
+
+            pxhr.onerror   = function () {};
+            pxhr.ontimeout = function () {};
+            pxhr.send(pfd);
+        }, 5000);
     }
 
     /* ── Read file as base64 when an image is attached ──────────────────── */
@@ -1407,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', function() {
   *   {"success":true,...}\n       ← JSON payload
   *   <div class="ai-result">...   ← rendered HTML (one or more lines)
   * ============================================================================ */
-  function _aigenerate_handle_response(raw, results, showErr, hideErr) {
+  function _aigenerate_handle_response(raw, results, showErr, hideErr, onQueued) {
     raw = String(raw || '');
 
     var markerIdx = raw.indexOf('QA_AJAX_RESPONSE');
@@ -1430,6 +1515,12 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             showErr('Could not parse server response.');
             console.error('[aigenerate] JSON parse error:', e, 'json:', json);
+            return;
+        }
+
+        // Async queued job — delegate to polling
+        if (response.success && response.status === 'queued' && response.job_token) {
+            if (typeof onQueued === 'function') onQueued(response.job_token);
             return;
         }
 

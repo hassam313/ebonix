@@ -353,7 +353,7 @@ if (qa_is_logged_in()) {
               KEY `user_id` (`user_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
         );
-        try { qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN thumbnail_url TEXT DEFAULT NULL'); } catch (Exception $e) {}
+        qa_db_query_sub('ALTER TABLE ^king_twins ADD COLUMN IF NOT EXISTS thumbnail_url TEXT DEFAULT NULL');
         $gallery_twins = qa_db_read_all_assoc(
             qa_db_query_sub(
                 'SELECT id, image_url, thumbnail_url, vibe, created_at FROM ^king_twins WHERE user_id=# ORDER BY created_at DESC LIMIT 12',
