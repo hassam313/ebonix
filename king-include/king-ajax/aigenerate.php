@@ -711,7 +711,7 @@ if ($is_logged_in) {
     $auto_mode = trim((string)(isset($_POST['auto_mode']) ? $_POST['auto_mode'] : '0'));
     if ($auto_mode === '1') {
         // Keyword-based auto routing (Phase 1 LLM router)
-        $prompt_lower = strtolower((string)$effective_input);
+        $prompt_lower = strtolower((string)$input);
         $premium_kw   = ['editorial', 'luxury', 'high fashion', 'magazine', 'studio lighting', 'ultra detail', '4k', 'professional', 'cinematic', 'vogue', 'aspirational'];
         $beauty_kw    = ['beauty portrait', 'glowing skin', 'soft glam', 'afrofuturist', 'editorial look', 'skin texture'];
         $budget_kw    = ['quick test', 'draft', 'simple background', 'sketch', 'rough', 'test'];
@@ -773,6 +773,13 @@ if ($is_logged_in) {
             exit;
         }
     }
+}
+
+// Identity-preservation rule (CLAUDE.md rule 9):
+// Whenever a reference image is attached, always use Kontext identity-preserving model.
+if ($ref_binary !== false && $aiselect !== 'fluxkon_selfie') {
+    error_log("aigenerate: ref_image present — overriding model '{$aiselect}' → 'fluxkon_selfie' for identity preservation");
+    $aiselect = 'fluxkon_selfie';
 }
 
 // Selfie mode: prompt is optional
@@ -959,10 +966,10 @@ if (!$gemini_processed && empty($image_urls)) {
                     'prompt'              => $base_prompt,
                     'image_url'           => $fal_image_url,
                     'num_images'          => $num_imgs,
-                    'guidance_scale'      => 2.5,
+                    'guidance_scale'      => 3.5,
                     'num_inference_steps' => 28,
                     'output_format'       => 'jpeg',
-                    'safety_tolerance'    => '2',
+                    'safety_tolerance'    => '6',
                 ];
 
                 error_log("Fal: submitting job to fal-ai/flux-pro/kontext");
