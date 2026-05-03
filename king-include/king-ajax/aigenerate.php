@@ -1437,7 +1437,10 @@ if (!$gemini_processed && empty($image_urls)) {
             if ($model_type === 'nano') {
                 // Nano Banana (1.0, 2.0, Classic): only accepts prompt + image_urls
                 // aspect_ratio is NOT a valid param for these endpoints — causes 400
-                $eb_payload = ['prompt' => $rep_effective_input];
+                $eb_payload = [
+                    'prompt'           => $rep_effective_input,
+                    'safety_tolerance' => '6',
+                ];
                 if (!empty($eb_fal_image_url)) {
                     $eb_payload['image_urls'] = [$eb_fal_image_url];
                 }
@@ -1461,10 +1464,11 @@ if (!$gemini_processed && empty($image_urls)) {
             } elseif ($model_type === 'flux_pro') {
                 // FLUX 1.1 Pro Ultra: text-to-image
                 $eb_payload = [
-                    'prompt'        => $rep_effective_input,
-                    'aspect_ratio'  => $eb_aspect,
-                    'num_images'    => 1,
-                    'output_format' => 'jpeg',
+                    'prompt'           => $rep_effective_input,
+                    'aspect_ratio'     => $eb_aspect,
+                    'num_images'       => 1,
+                    'output_format'    => 'jpeg',
+                    'safety_tolerance' => '6',
                 ];
                 if (!empty($eb_fal_image_url)) {
                     $eb_payload['image_url'] = $eb_fal_image_url;
@@ -1477,10 +1481,10 @@ if (!$gemini_processed && empty($image_urls)) {
                 // The base kontext endpoint requires image_url and returns 422 without it.
                 if (!empty($eb_fal_image_url)) {
                     $endpoint    = 'fal-ai/flux-pro/kontext';
-                    $eb_payload  = ['prompt' => $rep_effective_input, 'image_url' => $eb_fal_image_url];
+                    $eb_payload  = ['prompt' => $rep_effective_input, 'image_url' => $eb_fal_image_url, 'safety_tolerance' => '6'];
                 } else {
                     $endpoint    = 'fal-ai/flux-pro/kontext/text-to-image';
-                    $eb_payload  = ['prompt' => $rep_effective_input, 'aspect_ratio' => $eb_aspect];
+                    $eb_payload  = ['prompt' => $rep_effective_input, 'aspect_ratio' => $eb_aspect, 'safety_tolerance' => '6'];
                 }
             }
 
