@@ -23,6 +23,8 @@ if (!defined('QA_VERSION')) {
 set_time_limit(660);
 ini_set('max_execution_time', 660);
 ini_set('memory_limit', '512M');
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 require_once QA_INCLUDE_DIR . 'king-app/users.php';
 require_once QA_INCLUDE_DIR . 'king-app/limits.php';
@@ -965,10 +967,17 @@ if (!$gemini_processed && empty($image_urls)) {
                 'selfie_vacation'         => 'Transform this person into a vacation lifestyle photo. Bright golden hour setting, sun-kissed travel aesthetic, casual chic relaxed style. Preserve the person\'s exact facial features, skin tone, and identity.',
                 'selfie_afro_futurist'    => 'Transform this person into an Afro-futurist aesthetic portrait. Bold colors, cultural African futurist styling, powerful presence, celebration of identity and heritage. Preserve the person\'s exact facial features, skin tone, and identity.',
             ];
-            $base_prompt = $style_prompt_map[$aistyle]
-                ?? 'Enhance and stylize this photo beautifully while preserving the person\'s exact identity, facial features, and skin tone.';
+            $preservation = 'Preserve the person\'s exact facial features, skin tone, and identity. No change to skin color.';
             if (!empty($input)) {
-                $base_prompt .= ' Additional details: ' . $input;
+                // User-supplied prompt takes the lead — style preset is used only as fallback.
+                $style_context = $style_prompt_map[$aistyle] ?? '';
+                $base_prompt   = $input
+                    . ($style_context ? '. ' . $style_context : '')
+                    . '. ' . $preservation;
+            } else {
+                $base_prompt = ($style_prompt_map[$aistyle]
+                    ?? 'Enhance and stylize this photo beautifully while preserving the person\'s exact identity, facial features, and skin tone.')
+                    . ' ' . $preservation;
             }
 
             error_log("Fal Kontext: style={$aistyle} prompt=" . substr($base_prompt, 0, 80) . '...');
@@ -1026,6 +1035,7 @@ if (!$gemini_processed && empty($image_urls)) {
                         'coins'        => (int)$img_total_cost,
                         'model'        => 'fluxkon_selfie',
                         'aistyle'      => (string)$aistyle,
+                        'prompt'       => (string)$input,   // user's actual typed prompt
                         'expiry'       => time() + 1800,
                     ];
                     echo "QA_AJAX_RESPONSE\n1\n" . json_encode([
@@ -1653,14 +1663,15 @@ if (!$gemini_processed && !empty($image_urls)) {
         error_log("Saving image from URL: " . $image_url);
         try {
             if ($is_fal_url) {
-                // Fast path: store CDN URL directly, skip download + GD conversion
+                // Store full CDN URL + generate a 400px local thumbnail for fast gallery display
                 $cdn_rec = king_store_cdn_url($image_url);
                 if (!empty($cdn_rec)) {
-                    $thumbs[]         = $cdn_rec;
                     $uploaded_images[] = $cdn_rec;
+                    $thumb_id = king_urlupload($image_url, false, 400);
+                    $thumbs[] = !empty($thumb_id) ? $thumb_id : $cdn_rec;
                 }
             } else {
-                $thumb = king_urlupload($image_url, true, 600);
+                $thumb = king_urlupload($image_url, true, 400);
                 if (!empty($thumb)) $thumbs[] = $thumb;
                 $upload_response = king_urlupload($image_url);
                 if (!empty($upload_response)) {
@@ -1699,6 +1710,9 @@ qa_db_postmeta_set($postid, 'model', $aiselect);
 if (!empty($npvalue))      qa_db_postmeta_set($postid, 'nprompt', $npvalue);
 if (!empty($style_preset)) qa_db_postmeta_set($postid, 'stle',    $style_preset);
 if (!empty($imsize))       qa_db_postmeta_set($postid, 'asize',   $imsize);
+
+// Store thumbnail IDs for fast gallery preview
+if (!empty($thumbs)) qa_db_postmeta_set($postid, 'img_thumbs', serialize($thumbs));
 
 // Store ref image association when one was used
 $i2i_models_for_meta = ['fluxkon', 'sdream', 'banana', 'decart_img', 'luma_img', 'imagen4', 'de', 'fluxkon_selfie',

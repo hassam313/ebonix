@@ -1380,37 +1380,148 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /* ── Async job polling (for fluxkon_selfie / Fal Kontext queue) ─────── */
+    /* ── Async job polling — beautiful loading card with cancel ─────────── */
     function startPolling(jobToken) {
-        var pollCount   = 0;
-        var maxPolls    = 36; // 36 × 5s = 3 minutes
-        var startTime   = Date.now();
-        var statusEl    = document.getElementById('ebx-poll-status');
+        var pollCount = 0;
+        var maxPolls  = 36; // 36 × 5s = 3 min max
+        var startTime = Date.now();
+        var cancelled = false;
+        var timer;
 
-        if (!statusEl) {
-            statusEl = document.createElement('div');
-            statusEl.id = 'ebx-poll-status';
-            statusEl.style.cssText = 'margin:12px 0;padding:12px 16px;background:#1a1a2e;border:1px solid #3a3a5c;border-radius:10px;color:#a0a0c0;font-size:13px;text-align:center;';
-            if (results) results.parentNode.insertBefore(statusEl, results);
-            else document.body.appendChild(statusEl);
+        // ── Remove any leftover status card ──────────────────────────────────
+        var old = document.getElementById('ebx-gen-card');
+        if (old) old.remove();
+
+        // ── Build the loading card ────────────────────────────────────────────
+        var card = document.createElement('div');
+        card.id = 'ebx-gen-card';
+        card.innerHTML = [
+            '<div class="ebx-gen-inner">',
+            '  <div class="ebx-gen-anim">',
+            '    <div class="ebx-gen-ring"></div>',
+            '    <div class="ebx-gen-spark"></div>',
+            '  </div>',
+            '  <div class="ebx-gen-text">',
+            '    <p class="ebx-gen-title">Creating your image…</p>',
+            '    <p class="ebx-gen-sub" id="ebx-gen-sub">Starting up</p>',
+            '  </div>',
+            '  <div class="ebx-gen-progress"><div class="ebx-gen-bar" id="ebx-gen-bar"></div></div>',
+            '  <button type="button" class="ebx-gen-cancel" id="ebx-gen-cancel">',
+            '    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+            '    Cancel generation',
+            '  </button>',
+            '</div>'
+        ].join('');
+
+        // ── Inject card styles once ───────────────────────────────────────────
+        if (!document.getElementById('ebx-gen-style')) {
+            var style = document.createElement('style');
+            style.id  = 'ebx-gen-style';
+            style.textContent = [
+                '#ebx-gen-card{margin:20px 0;animation:ebxFadeIn .3s ease}',
+                '@keyframes ebxFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}',
+                '.ebx-gen-inner{display:flex;flex-direction:column;align-items:center;gap:16px;',
+                '  padding:32px 24px;background:linear-gradient(135deg,#0d0d1a 0%,#141428 100%);',
+                '  border:1px solid rgba(120,100,255,.25);border-radius:16px;',
+                '  box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(120,100,255,.08);}',
+                '.ebx-gen-anim{position:relative;width:72px;height:72px}',
+                '.ebx-gen-ring{position:absolute;inset:0;border-radius:50%;',
+                '  border:3px solid transparent;',
+                '  border-top-color:#7c5cfc;border-right-color:#a78bfa;',
+                '  animation:ebxSpin 1s linear infinite;}',
+                '@keyframes ebxSpin{to{transform:rotate(360deg)}}',
+                '.ebx-gen-spark{position:absolute;inset:8px;border-radius:50%;',
+                '  background:radial-gradient(circle,rgba(124,92,252,.18) 0%,transparent 70%);',
+                '  animation:ebxPulse 2s ease-in-out infinite;}',
+                '@keyframes ebxPulse{0%,100%{opacity:.4;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}',
+                '.ebx-gen-text{text-align:center}',
+                '.ebx-gen-title{margin:0;font-size:16px;font-weight:600;color:#e8e0ff;letter-spacing:.01em}',
+                '.ebx-gen-sub{margin:4px 0 0;font-size:13px;color:#8880b0;transition:all .3s}',
+                '.ebx-gen-progress{width:100%;max-width:260px;height:3px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden}',
+                '.ebx-gen-bar{height:100%;width:0;background:linear-gradient(90deg,#7c5cfc,#a78bfa);',
+                '  border-radius:99px;transition:width .8s ease;animation:ebxIndeterminate 2s ease-in-out infinite;}',
+                '@keyframes ebxIndeterminate{0%{transform:translateX(-100%) scaleX(.3)}',
+                '  50%{transform:translateX(50%) scaleX(.5)}100%{transform:translateX(200%) scaleX(.3)}}',
+                '.ebx-gen-cancel{display:inline-flex;align-items:center;gap:8px;margin-top:4px;',
+                '  padding:8px 20px;border:1px solid rgba(255,80,80,.3);border-radius:99px;',
+                '  background:rgba(255,60,60,.08);color:#ff8080;font-size:13px;cursor:pointer;',
+                '  transition:all .2s;font-family:inherit}',
+                '.ebx-gen-cancel:hover{background:rgba(255,60,60,.18);border-color:rgba(255,80,80,.6);color:#ffaaaa}',
+            ].join('');
+            document.head.appendChild(style);
         }
 
-        function updateStatus(msg) {
-            if (statusEl) statusEl.textContent = msg;
+        // Insert card before results
+        if (results && results.parentNode) {
+            results.parentNode.insertBefore(card, results);
+        } else {
+            document.body.appendChild(card);
         }
 
-        updateStatus('Generating your image... (0s)');
+        var subEl    = document.getElementById('ebx-gen-sub');
+        var cancelEl = document.getElementById('ebx-gen-cancel');
 
-        var timer = setInterval(function () {
+        // ── Progress messages cycle ───────────────────────────────────────────
+        var messages = [
+            'Sending to AI…',
+            'Processing your image…',
+            'Applying identity preservation…',
+            'Rendering details…',
+            'Finalizing…',
+            'Almost there…',
+        ];
+
+        function updateSub(elapsed) {
+            var idx = Math.min(Math.floor(elapsed / 8), messages.length - 1);
+            if (subEl) subEl.textContent = messages[idx] + ' (' + elapsed + 's)';
+        }
+        updateSub(0);
+
+        // ── Cancel handler ────────────────────────────────────────────────────
+        if (cancelEl) {
+            cancelEl.addEventListener('click', function () {
+                if (cancelled) return;
+                cancelled = true;
+                clearInterval(timer);
+                if (card) card.remove();
+                setLoading(false);
+
+                // Tell the server to deduct coins (Fal already ran the job)
+                var cfd = new FormData();
+                cfd.append('qa_operation', 'cancelgeneration');
+                cfd.append('qa_request',   'submitai');
+                cfd.append('qa_root',      qaRoot);
+                cfd.append('job_token',    jobToken);
+                var cxhr = new XMLHttpRequest();
+                cxhr.open('POST', ajaxUrl, true);
+                cxhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                cxhr.timeout = 10000;
+                cxhr.onload = function () {
+                    try {
+                        var r = JSON.parse(cxhr.responseText);
+                        if (r && typeof r.coins_remaining !== 'undefined') {
+                            ebonixRefreshCoinDisplay(r.coins_remaining);
+                        }
+                    } catch (e) {}
+                };
+                cxhr.send(cfd);
+
+                showErr('Generation cancelled. ' + (jobToken ? 'Coins were deducted because the AI had already started processing.' : ''));
+            });
+        }
+
+        // ── Poll loop ─────────────────────────────────────────────────────────
+        timer = setInterval(function () {
+            if (cancelled) return;
             pollCount++;
             var elapsed = Math.round((Date.now() - startTime) / 1000);
-            updateStatus('Generating your image... (' + elapsed + 's)');
+            updateSub(elapsed);
 
             if (pollCount > maxPolls) {
                 clearInterval(timer);
-                if (statusEl) statusEl.remove();
+                if (card) card.remove();
                 setLoading(false);
-                showErr('Generation is taking longer than expected. Your image may still be processing — refresh the page in a few minutes to see results.');
+                showErr('Generation is taking longer than expected. Your image may still be processing — refresh the page in a few minutes.');
                 return;
             }
 
@@ -1426,14 +1537,14 @@ document.addEventListener('DOMContentLoaded', function() {
             pxhr.timeout = 20000;
 
             pxhr.onload = function () {
-                if (pxhr.status < 200 || pxhr.status >= 300) return;
+                if (cancelled || pxhr.status < 200 || pxhr.status >= 300) return;
 
                 var raw    = pxhr.responseText;
                 var marker = raw.indexOf('QA_AJAX_RESPONSE');
 
                 if (marker !== -1) {
                     clearInterval(timer);
-                    if (statusEl) statusEl.remove();
+                    if (card) card.remove();
                     setLoading(false);
                     _aigenerate_handle_response(raw, results, showErr, hideErr);
                     return;
@@ -1445,14 +1556,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (resp.status === 'expired' || (resp.success === false && resp.status !== 'pending')) {
                     clearInterval(timer);
-                    if (statusEl) statusEl.remove();
+                    if (card) card.remove();
                     setLoading(false);
                     showErr(resp.message || 'Generation failed. Please try again.');
                     return;
                 }
 
                 if (resp.queue_position) {
-                    updateStatus('In queue (position ' + resp.queue_position + ')... (' + elapsed + 's)');
+                    if (subEl) subEl.textContent = 'In queue — position ' + resp.queue_position + ' (' + elapsed + 's)';
                 }
             };
 
@@ -1545,8 +1656,9 @@ if (response.success) {
   if (results) {
       var html = lines.slice(2).join('\n').trim();
       if (html) {
-          // Prepend newest result so it appears at the top
-          results.innerHTML = html + results.innerHTML;
+          // Replace gallery entirely — king_ai_posts returns all posts (newest first),
+          // so prepending would duplicate the entire gallery on every generation.
+          results.innerHTML = html;
 
           // ── Force-load lazy images immediately after inject ──────
           // The lazy-load library won't re-scan injected HTML on its
@@ -1884,7 +1996,7 @@ if (response.success) {
     $(document).magnificPopup({
       delegate: '.king-aipost-left a',
       type: 'image',
-      closeOnContentClick: false,
+      closeOnContentClick: true,
       closeBtnInside: false,
       mainClass: 'king-gallery-zoom',
       gallery: { enabled: true },
@@ -1895,5 +2007,22 @@ if (response.success) {
           return element.is('img') ? element : element.find('img');
         }
       }
+    });
+
+    // Fade-in thumbnails as they load (works for page-load and after gallery inject)
+    function ebxFadeInImages(root) {
+      (root || document).querySelectorAll('.ai-img').forEach(function (img) {
+        if (img.complete && img.naturalWidth) {
+          img.classList.add('loaded');
+        } else {
+          img.addEventListener('load', function () { img.classList.add('loaded'); }, { once: true });
+        }
+      });
+    }
+    ebxFadeInImages(document);
+
+    // Re-run after gallery is injected dynamically (generation complete)
+    document.addEventListener('ebx:generation:success', function () {
+      setTimeout(function () { ebxFadeInImages(document); }, 100);
     });
   });

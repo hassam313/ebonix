@@ -7413,15 +7413,28 @@ button.verify-button {
   position: relative;
 }
 .king-aipost-left a {
-
+  display: block;
   max-width: 60%;
-
+  overflow: hidden;
+  border-radius: 14px;
+  background: #0d0d1a;
+  /* prevent layout shift while thumbnail loads */
+  min-height: 180px;
 }
 .ai-img {
-    height: auto;
-    max-width: 100%;
-border-radius: 14px;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  /* fixed gallery height — thumbnail loads fast, full image opens in popup */
+  max-height: 400px;
+  object-fit: cover;
+  border-radius: 14px;
+  /* smooth fade-in once loaded */
+  opacity: 0;
+  transition: opacity .35s ease;
 }
+.ai-img.loaded { opacity: 1; }
 .king-aipost-content {
   display: flex;
   flex-direction: column;

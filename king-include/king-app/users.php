@@ -1574,10 +1574,37 @@ function king_ai_posts( $userid, $type ) {
 		$extras = @unserialize( $extraz );
 
 			if ( $type === 'aimg' && is_array( $extras ) ) {
-				foreach ( $extras as $extra ) {
-					$text2 = king_get_uploads( $extra );
-					$html .= '<a href="' . $text2['furl'] . '">';
-					$html .= '<img class="ai-img" src="' . $text2['furl'] . '" width="' . $text2['width'] . '" height="' . $text2['height'] . '"/>';
+				// Load thumbnail IDs (stored at generation time for fast gallery display)
+				$thumb_ids_raw = qa_db_postmeta_get( $postid, 'img_thumbs' );
+				$thumb_ids     = $thumb_ids_raw ? @unserialize( $thumb_ids_raw ) : [];
+				foreach ( $extras as $i => $extra ) {
+					$full_rec = king_get_uploads( $extra );
+					if ( !$full_rec || empty( $full_rec['furl'] ) ) continue;
+
+					// Skip local files that no longer exist on disk — prevents 404 browser requests
+					// CDN records have no 'path' set, so this check only applies to local files.
+					if ( !empty( $full_rec['path'] ) && !@file_exists( $full_rec['path'] ) ) continue;
+
+					$full_url = $full_rec['furl']; // HTML-escaped full-size CDN URL
+
+					// Use local thumbnail when available — much smaller file, loads fast
+					$thumb_id  = isset( $thumb_ids[ $i ] ) ? $thumb_ids[ $i ] : null;
+					$thumb_rec = $thumb_id ? king_get_uploads( $thumb_id ) : null;
+					// Also skip thumbnail if its local file is gone
+					if ( $thumb_rec && !empty( $thumb_rec['path'] ) && !@file_exists( $thumb_rec['path'] ) ) {
+						$thumb_rec = null;
+					}
+					$thumb_url = ( $thumb_rec && !empty( $thumb_rec['furl'] ) ) ? $thumb_rec['furl'] : $full_url;
+
+					$w = $thumb_rec ? (int) $thumb_rec['width']  : (int) $full_rec['width'];
+					$h = $thumb_rec ? (int) $thumb_rec['height'] : (int) $full_rec['height'];
+
+					// href = full CDN URL (Magnific Popup opens it on click)
+					// src  = small local thumbnail (fast gallery display)
+					$html .= '<a href="' . $full_url . '">';
+					$html .= '<img class="ai-img" src="' . $thumb_url . '" loading="lazy" decoding="async"';
+					if ( $w && $h ) $html .= ' width="' . $w . '" height="' . $h . '"';
+					$html .= ' onerror="this.closest(\'a\').style.display=\'none\'"/>';
 					$html .= '</a>';
 				}
 			} elseif ( $type === 'aivid' ) {

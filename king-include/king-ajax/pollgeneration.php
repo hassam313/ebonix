@@ -1,6 +1,11 @@
 <?php
 if (!defined('QA_VERSION')) { header('Location: ../'); exit; }
 
+// Suppress deprecated/notice output so PHP warnings never corrupt the QA_AJAX_RESPONSE wire format.
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ob_start(); // capture any accidental output before our echo
+
 header('Content-Type: application/json');
 
 require_once QA_INCLUDE_DIR . 'king-app/users.php';
@@ -132,11 +137,14 @@ foreach ($result_images as $img) {
     if ($is_fal_url) {
         $cdn_rec = king_store_cdn_url($image_url);
         if (!empty($cdn_rec)) {
-            $thumbs[]          = $cdn_rec;
             $uploaded_images[] = $cdn_rec;
+            // Download and save a 400px-wide WebP thumbnail for fast gallery display.
+            // king_urlupload handles download + GD resize + local save + DB insert.
+            $thumb_id = king_urlupload($image_url, false, 400);
+            $thumbs[] = !empty($thumb_id) ? $thumb_id : $cdn_rec;
         }
     } else {
-        $thumb = king_urlupload($image_url, true, 600);
+        $thumb = king_urlupload($image_url, true, 400);
         if (!empty($thumb)) $thumbs[] = $thumb;
         $full = king_urlupload($image_url);
         if (!empty($full)) $uploaded_images[] = $full;
@@ -153,8 +161,10 @@ if (empty($uploaded_images)) {
 $extra         = serialize($uploaded_images);
 $thumb         = end($thumbs);
 $cookieid      = qa_cookie_get();
-$aistyle       = (string)($job['aistyle'] ?? '');
-$prompt_for_post = $aistyle ?: 'Identity-preserved photo transformation';
+$aistyle         = (string)($job['aistyle'] ?? '');
+$user_prompt     = trim((string)($job['prompt'] ?? ''));
+// Show user's typed prompt; fall back to style name if they left the box empty
+$prompt_for_post = $user_prompt ?: ($aistyle ?: 'Identity-preserved photo transformation');
 
 $postid = qa_question_create(
     null, $userid,
@@ -167,6 +177,8 @@ qa_db_postmeta_set($postid, 'wai',   true);
 qa_db_postmeta_set($postid, 'model', 'fluxkon_selfie');
 if (!empty($aistyle)) qa_db_postmeta_set($postid, 'stle', $aistyle);
 qa_db_postmeta_set($postid, 'pimage', 'b64');
+// Store thumbnail upload IDs so king_ai_posts can show small previews (fast load)
+if (!empty($thumbs)) qa_db_postmeta_set($postid, 'img_thumbs', serialize($thumbs));
 
 // ── Deduct coins (only after confirmed save + post creation) ───────────────
 $coins       = (int)($job['coins'] ?? 0);
@@ -191,6 +203,8 @@ $posts_html = preg_replace_callback(
     },
     $posts_html
 );
+
+ob_end_clean(); // discard any PHP warnings captured above before sending clean response
 
 echo "QA_AJAX_RESPONSE\n1\n" . json_encode([
     'success'         => true,

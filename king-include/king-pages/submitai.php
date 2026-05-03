@@ -852,8 +852,8 @@ function twinGallerySelect(el, url, vibe) {
     // canvas cross-origin tainting (Fal CDN supports CORS but canvas tainting
     // can still fail in some browsers depending on cache state).
     fetch(url)
-        .then(function (r) { return r.blob(); })
-        .then(function (blob) { injectBlob(blob); })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+        .then(function (blob) { if (blob.size < 100) throw new Error('empty blob'); injectBlob(blob); })
         .catch(function () {
             // Last resort: load via canvas
             var img = new Image();
@@ -869,6 +869,18 @@ function twinGallerySelect(el, url, vibe) {
                 canvas.width = w; canvas.height = h;
                 canvas.getContext('2d').drawImage(img, 0, 0, w, h);
                 canvas.toBlob(function (blob) { injectBlob(blob); }, 'image/jpeg', 0.85);
+            };
+            img.onerror = function () {
+                // Both fetch and canvas failed — twin image URL is expired or inaccessible.
+                // Deselect the item and tell the user clearly so they know to re-save.
+                document.querySelectorAll('.twin-gallery-item').forEach(function (item) {
+                    item.classList.remove('twin-gallery-selected');
+                });
+                var errEl = document.getElementById('ai-error');
+                if (errEl) {
+                    errEl.textContent = 'This twin image could not be loaded (the URL may have expired). Please open AI Twin, regenerate, and save it again.';
+                    errEl.style.display = 'block';
+                }
             };
             img.src = url;
         });
