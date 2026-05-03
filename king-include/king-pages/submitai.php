@@ -368,12 +368,15 @@ if (qa_is_logged_in()) {
     $cont .= '<div class="twin-gallery-scroll" id="twin-gallery-scroll">';
     if (!empty($gallery_twins)) {
         foreach ($gallery_twins as $gt) {
-            $vibe_esc = qa_html($gt['vibe']);
-            $url_js   = addslashes($gt['image_url']);
-            $vibe_js  = addslashes($gt['vibe']);
-            $cont .= '<div class="twin-gallery-item" data-url="' . qa_html($gt['image_url']) . '" data-vibe="' . $vibe_esc . '"';
+            $vibe_esc   = qa_html($gt['vibe']);
+            // thumbnail_url for fast display; image_url (full CDN) for generation reference
+            $thumb_src  = !empty($gt['thumbnail_url']) ? $gt['thumbnail_url'] : $gt['image_url'];
+            $fetch_url  = !empty($gt['thumbnail_url']) ? $gt['thumbnail_url'] : $gt['image_url'];
+            $url_js     = addslashes($fetch_url);
+            $vibe_js    = addslashes($gt['vibe']);
+            $cont .= '<div class="twin-gallery-item" data-url="' . qa_html($fetch_url) . '" data-vibe="' . $vibe_esc . '"';
             $cont .= ' onclick="twinGallerySelect(this,\'' . $url_js . '\',\'' . $vibe_js . '\')">';
-            $cont .= '<img src="' . qa_html($gt['image_url']) . '" alt="' . $vibe_esc . '" loading="lazy">';
+            $cont .= '<img src="' . qa_html($thumb_src) . '" alt="' . $vibe_esc . '" loading="eager" decoding="async">';
             $cont .= '<span class="twin-gallery-vibe">' . $vibe_esc . '</span>';
             $cont .= '</div>';
         }
