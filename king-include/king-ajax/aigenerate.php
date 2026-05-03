@@ -237,12 +237,55 @@ if (!function_exists('king_resize_binary')) {
 // FAL AI HELPERS
 // ============================================================
 if (!function_exists('king_fal_upload_storage')) {
-    // Returns a base64 data URI that Fal models accept directly as image_url.
-    // This avoids the need for a separate Fal storage upload API call.
+    // Saves the image locally and returns a public URL for Fal to fetch.
+    // Falls back to base64 data URI only for localhost/dev environments.
     function king_fal_upload_storage($binary_data, $mime_type, $fal_api_key) {
         if (empty($binary_data)) return '';
-        $data_uri = 'data:' . $mime_type . ';base64,' . base64_encode($binary_data);
-        error_log("king_fal_upload_storage: returning data URI (" . strlen($binary_data) . " bytes)");
+
+        // Always convert to JPEG ≤1024px for Fal — keeps payload tiny and fast.
+        $resized   = $binary_data;
+        $out_mime  = $mime_type;
+        if (extension_loaded('gd')) {
+            $src = @imagecreatefromstring($binary_data);
+            if ($src) {
+                $ow = imagesx($src); $oh = imagesy($src);
+                $max = 1024;
+                if ($ow > $max || $oh > $max) {
+                    $scale = min($max / $ow, $max / $oh);
+                    $nw = max(1, (int)($ow * $scale));
+                    $nh = max(1, (int)($oh * $scale));
+                } else {
+                    $nw = $ow; $nh = $oh;
+                }
+                $dst = imagecreatetruecolor($nw, $nh);
+                imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $ow, $oh);
+                imagedestroy($src);
+                ob_start();
+                imagejpeg($dst, null, 88);
+                $resized = ob_get_clean();
+                imagedestroy($dst);
+                $out_mime = 'image/jpeg';
+            }
+        }
+
+        // Save locally and serve as public URL (works on VPS/production).
+        $site_url = rtrim((string)qa_opt('site_url'), '/');
+        $is_local = (strpos($site_url, '127.0.0.1') !== false || strpos($site_url, 'localhost') !== false);
+        if (!$is_local && !empty($site_url)) {
+            $folder  = 'uploads/' . date('Y') . '/' . date('m') . '/';
+            $destDir = QA_INCLUDE_DIR . $folder;
+            if (!is_dir($destDir)) @mkdir($destDir, 0755, true);
+            $filename = 'fal-ref-' . uniqid('', true) . '.jpg';
+            if (@file_put_contents($destDir . $filename, $resized)) {
+                $public_url = $site_url . '/king-include/' . $folder . $filename;
+                error_log("king_fal_upload_storage: saved locally → {$public_url}");
+                return $public_url;
+            }
+        }
+
+        // Fallback: base64 data URI (local dev only)
+        $data_uri = 'data:' . $out_mime . ';base64,' . base64_encode($resized);
+        error_log("king_fal_upload_storage: base64 fallback (" . strlen($resized) . " bytes)");
         return $data_uri;
     }
 }
